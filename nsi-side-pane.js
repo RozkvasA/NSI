@@ -66,7 +66,7 @@
       <div class="section">
         <h3>Системы</h3>
         <div class="cols">
-          <div><div class="item-meta">Прямые системы объекта</div>${renderLinkLines(direct, 'прямо здесь')}</div>
+          <div><div class="item-meta">Собственные системы объекта</div>${renderLinkLines(direct, 'собственная')}</div>
           <div><div class="item-meta">Системы офисного контура</div>${renderLinkLines(ownOffice, 'система офиса')}</div>
         </div>
         <div style="margin-top:12px">

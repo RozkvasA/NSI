@@ -79,7 +79,7 @@
     applyTheme(state.theme || readTheme());
     const collapsed = !!state.sidebarCollapsed;
     document.getElementById('app').innerHTML = `
-      <div class="app adjustable-side-pane ${collapsed ? 'sidebar-collapsed' : ''}">
+      <div class="app adjustable-side-pane tab-${state.tab} ${collapsed ? 'sidebar-collapsed' : ''}">
         <aside class="sidebar">
           <div class="sidebar-header">
             <div class="logo" title="НСИ">НСИ</div>

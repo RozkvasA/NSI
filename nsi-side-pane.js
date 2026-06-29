@@ -81,9 +81,24 @@
     `;
   }
 
+  function treeKey(kind, id) {
+    return `${kind}:${id}`;
+  }
+
   function collapsed(kind, id) {
     state.collapsedTreeNodes = state.collapsedTreeNodes || {};
-    return !!state.collapsedTreeNodes[`${kind}:${id}`];
+    return !!state.collapsedTreeNodes[treeKey(kind, id)];
+  }
+
+  function mixedExpanded(kind, id) {
+    state.mixedTreeExpanded = state.mixedTreeExpanded || {};
+    return !!state.mixedTreeExpanded[treeKey(kind, id)];
+  }
+
+  function setMixedExpanded(kind, id, value) {
+    state.mixedTreeExpanded = state.mixedTreeExpanded || {};
+    if (value) state.mixedTreeExpanded[treeKey(kind, id)] = true;
+    else delete state.mixedTreeExpanded[treeKey(kind, id)];
   }
 
   function descendantIds(list, id) {
@@ -106,18 +121,60 @@
     return depth;
   }
 
-  function treeToggle(kind, id, hasChildren, isCollapsed) {
-    if (!hasChildren) return '<span class="tree-toggle-spacer"></span>';
-    return `<button class="tree-toggle ${isCollapsed ? 'collapsed' : ''}" onclick="toggleTreeNode(event,'${kind}','${id}')" title="${isCollapsed ? 'Развернуть' : 'Свернуть'}">▾</button>`;
+  function currentTreeLimit() {
+    if (state.objectTreeDepth === 'mixed') return Number(state.objectTreeMixedBaseDepth || 2);
+    return Number(state.objectTreeDepth || 99);
   }
+
+  function treeToggle(kind, id, hasChildren, isClosed) {
+    if (!hasChildren) return '<span class="tree-toggle-spacer"></span>';
+    return `<button class="tree-toggle ${isClosed ? 'collapsed' : ''}" onclick="toggleTreeNode(event,'${kind}','${id}')" title="${isClosed ? 'Развернуть' : 'Свернуть'}">▾</button>`;
+  }
+
+  window.toggleTreeNode = function (event, kind, id) {
+    event.preventDefault();
+    event.stopPropagation();
+    state.collapsedTreeNodes = state.collapsedTreeNodes || {};
+
+    if (kind === 'object') {
+      const item = objectById(id);
+      const depth = item ? objectDepth(item) : 1;
+      const limit = currentTreeLimit();
+      const limitedByLevel = depth >= limit;
+
+      if (limitedByLevel || state.objectTreeDepth === 'mixed') {
+        if (state.objectTreeDepth !== 'mixed') {
+          state.objectTreeMixedBaseDepth = limit;
+          state.objectTreeDepth = 'mixed';
+        }
+        setMixedExpanded(kind, id, !mixedExpanded(kind, id));
+        delete state.collapsedTreeNodes[treeKey(kind, id)];
+        render();
+        return;
+      }
+    }
+
+    state.collapsedTreeNodes[treeKey(kind, id)] = !state.collapsedTreeNodes[treeKey(kind, id)];
+    render();
+  };
 
   window.setObjectTreeDepth = function (depth) {
     state.objectTreeDepth = Number(depth) || 99;
+    state.objectTreeMixedBaseDepth = null;
+    state.mixedTreeExpanded = {};
+    render();
+  };
+
+  window.setObjectTreeMixed = function () {
+    state.objectTreeDepth = 'mixed';
+    state.objectTreeMixedBaseDepth = Number(state.objectTreeMixedBaseDepth || 2);
     render();
   };
 
   window.expandObjectTreeFull = function () {
     state.objectTreeDepth = 99;
+    state.objectTreeMixedBaseDepth = null;
+    state.mixedTreeExpanded = {};
     render();
   };
 
@@ -130,6 +187,7 @@
         <button class="small ${current === 2 ? 'active' : ''}" onclick="setObjectTreeDepth(2)">Этажи</button>
         <button class="small ${current === 3 ? 'active' : ''}" onclick="setObjectTreeDepth(3)">Зоны</button>
         <button class="small ${current === 4 ? 'active' : ''}" onclick="setObjectTreeDepth(4)">Помещения</button>
+        <button class="small ${current === 'mixed' ? 'active' : ''}" onclick="setObjectTreeMixed()">Смешанный</button>
         <button class="small ${current === 99 ? 'active' : ''}" onclick="expandObjectTreeFull()">Все</button>
       </div>
     `;
@@ -165,19 +223,22 @@
     const hasChildren = nested.length > 0;
     const isCollapsed = collapsed('object', item.id);
     const depth = objectDepth(item);
-    const blockedByLevel = depth >= (state.objectTreeDepth || 99);
-    const hidden = isCollapsed || blockedByLevel ? descendantIds(data.objects, item.id).length : 0;
+    const limit = currentTreeLimit();
+    const openedInMixed = state.objectTreeDepth === 'mixed' && mixedExpanded('object', item.id);
+    const blockedByLevel = depth >= limit && !openedInMixed;
+    const visuallyClosed = isCollapsed || blockedByLevel;
+    const hidden = visuallyClosed ? descendantIds(data.objects, item.id).length : 0;
     return `
-      <div class="node level-${depth} ${hasChildren ? 'group-node' : 'leaf-node'} ${isCollapsed ? 'collapsed-node' : ''} ${state.selectedObjectId === item.id ? 'active' : ''}" draggable="true" ondragstart="startDrag('${item.id}')" ondragover="allowDrop(event)" ondragleave="dropLeave(event)" ondrop="dropObject(event,'${item.id}')">
+      <div class="node level-${depth} ${hasChildren ? 'group-node' : 'leaf-node'} ${visuallyClosed ? 'collapsed-node' : ''} ${state.selectedObjectId === item.id ? 'active' : ''}" draggable="true" ondragstart="startDrag('${item.id}')" ondragover="allowDrop(event)" ondragleave="dropLeave(event)" ondrop="dropObject(event,'${item.id}')">
         <div class="node-title" onclick="selectObject('${item.id}')">
-          ${treeToggle('object', item.id, hasChildren, isCollapsed)}
+          ${treeToggle('object', item.id, hasChildren, visuallyClosed)}
           <span>${escapeHtml(item.name)}</span>
           <span class="badge">${escapeHtml(item.type)}</span>
           ${hidden ? `<span class="badge muted">+${hidden}</span>` : ''}
         </div>
         <span class="badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
       </div>
-      ${hasChildren && !isCollapsed && !blockedByLevel ? `<div class="node-children">${nested.map(child => renderObjectNode(child)).join('')}</div>` : ''}
+      ${hasChildren && !visuallyClosed ? `<div class="node-children">${nested.map(child => renderObjectNode(child)).join('')}</div>` : ''}
     `;
   };
 

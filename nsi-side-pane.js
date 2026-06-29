@@ -27,8 +27,22 @@
     return data.systems.filter(item => item.locationId === objectId);
   }
 
-  function parentLinks(objectId) {
-    const parentIds = objectAncestors(objectId);
+  function nearestScopeObject(objectId, types) {
+    return objectAncestors(objectId)
+      .map(objectById)
+      .filter(Boolean)
+      .find(item => types.includes(item.type));
+  }
+
+  function officeLinks(objectId) {
+    const office = nearestScopeObject(objectId, ['Офис']);
+    if (!office) return [];
+    return data.systems.filter(item => item.locationId === office.id);
+  }
+
+  function buildingLinks(objectId) {
+    const office = nearestScopeObject(objectId, ['Офис']);
+    const parentIds = objectAncestors(objectId).filter(id => id !== office?.id);
     return data.systems.filter(item => parentIds.includes(item.locationId));
   }
 
@@ -45,14 +59,19 @@
 
   function renderLinksBlock(item) {
     const direct = directLinks(item.id);
-    const fromParents = parentLinks(item.id);
+    const ownOffice = officeLinks(item.id);
+    const inherited = buildingLinks(item.id);
     const insideChildren = childLocalLinks(item.id);
     return `
       <div class="section">
         <h3>Системы</h3>
         <div class="cols">
           <div><div class="item-meta">Прямые системы объекта</div>${renderLinkLines(direct, 'прямо здесь')}</div>
-          <div><div class="item-meta">Наследуется от родителей</div>${renderLinkLines(fromParents, 'наследуется')}</div>
+          <div><div class="item-meta">Системы офисного контура</div>${renderLinkLines(ownOffice, 'система офиса')}</div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="item-meta">Наследуется от здания / верхнего объекта</div>
+          ${renderLinkLines(inherited, 'наследуется')}
         </div>
         <div style="margin-top:12px">
           <div class="item-meta">Локальные системы дочерних помещений</div>

@@ -52,6 +52,22 @@
     return plan.w <= 7 && plan.h >= plan.w * 1.7;
   }
 
+  function planTypeClass(room) {
+    const value = `${room.type || ''} ${room.name || ''}`.toLowerCase();
+    if (value.includes('офис')) return 'plan-type-office';
+    if (value.includes('кабинет')) return 'plan-type-cabinet';
+    if (value.includes('open') || value.includes('ос ')) return 'plan-type-open-space';
+    if (value.includes('переговор')) return 'plan-type-meeting';
+    if (value.includes('моп') || value.includes('лифт')) return 'plan-type-mop';
+    if (value.includes('коридор') || value.includes('холл') || value.includes('проезд')) return 'plan-type-corridor';
+    if (value.includes('тех') || value.includes('сервер') || value.includes('итп') || value.includes('насос') || value.includes('вент')) return 'plan-type-tech';
+    if (value.includes('с/у') || value.includes('wc')) return 'plan-type-wc';
+    if (value.includes('кух')) return 'plan-type-kitchen';
+    if (value.includes('паркинг') || value.includes('парков')) return 'plan-type-parking';
+    if (value.includes('зона')) return 'plan-type-zone';
+    return 'plan-type-room';
+  }
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, Number(value) || 0));
   }
@@ -238,7 +254,7 @@
       const verticalClass = isVerticalTile(room) ? 'vertical-label' : '';
       const outClass = !isInsideParent(room) ? 'out-of-parent' : '';
       return `
-        <div data-plan-room="${room.id}" class="room fixed-tile plan-level-${depth} ${isContainer ? 'plan-container' : 'plan-leaf'} ${verticalClass} ${outClass} ${state.selectedObjectId === room.id ? 'active' : ''} ${state.planSelectedId === room.id && state.planEditing ? 'editing' : ''} ${statusClass(room.status)}" onclick="pickPlanRoom(event,'${room.id}')" onpointerdown="beginPlanDrag(event,'${room.id}','move')" style="${tileStyle(room)}">
+        <div data-plan-room="${room.id}" class="room fixed-tile plan-level-${depth} ${planTypeClass(room)} ${isContainer ? 'plan-container' : 'plan-leaf'} ${verticalClass} ${outClass} ${state.selectedObjectId === room.id ? 'active' : ''} ${state.planSelectedId === room.id && state.planEditing ? 'editing' : ''} ${statusClass(room.status)}" onclick="pickPlanRoom(event,'${room.id}')" onpointerdown="beginPlanDrag(event,'${room.id}','move')" style="${tileStyle(room)}">
           <div class="room-name">${escapeHtml(room.name)}</div>
           <div class="room-status">${isContainer ? 'контейнер · ' : ''}${escapeHtml(room.type)} · ${escapeHtml(room.status)}</div>
           ${resizeHandles(room)}
@@ -250,7 +266,7 @@
       <div class="plan enhanced-plan ${state.planEditing ? 'plan-editing' : ''}">
         <div class="floor-tabs">${floors.map(f => `<button class="${state.selectedFloorId === f.id ? 'active' : ''}" onclick="state.selectedFloorId='${f.id}';render()">${escapeHtml(f.name)}</button>`).join('')}</div>
         <div class="plan-caption">
-          <div><strong>${escapeHtml(currentFloor?.name || 'Этаж')}</strong><span>${rooms.length} зон и помещений · планировка как на скриншоте</span></div>
+          <div><strong>${escapeHtml(currentFloor?.name || 'Этаж')}</strong><span>${rooms.length} зон и помещений · планировка</span></div>
           <div class="plan-actions">
             <button class="ghost" onclick="resetPlanCanvas()">В центр</button>
             <button class="ghost plan-zoom-reset" onclick="resetPlanZoom()"><span class="plan-zoom-badge">${Math.round(zoom() * 100)}%</span></button>

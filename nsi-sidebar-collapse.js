@@ -56,12 +56,9 @@
   function renderThemeControls() {
     const theme = state.theme || readTheme();
     return `
-      <div class="theme-switcher">
-        <div class="theme-switcher-title">Тема</div>
-        <div class="theme-buttons">
-          <button class="small ${theme === 'light' ? 'active' : ''}" title="Светлая тема" onclick="setNsiTheme('light')"><span class="theme-label">Светлая</span><span class="nav-short">☀</span></button>
-          <button class="small ${theme === 'dark' ? 'active' : ''}" title="Темная тема" onclick="setNsiTheme('dark')"><span class="theme-label">Темная</span><span class="nav-short">☾</span></button>
-        </div>
+      <div class="theme-switcher icon-theme-switcher" title="Тема интерфейса">
+        <button class="theme-icon-button ${theme === 'light' ? 'active' : ''}" title="Светлая тема" aria-label="Светлая тема" onclick="setNsiTheme('light')">☀</button>
+        <button class="theme-icon-button ${theme === 'dark' ? 'active' : ''}" title="Темная тема" aria-label="Темная тема" onclick="setNsiTheme('dark')">☾</button>
       </div>
     `;
   }

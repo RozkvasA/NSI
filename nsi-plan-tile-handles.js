@@ -125,10 +125,56 @@
     return `width:${w}px;height:${h}px;margin-left:${-w / 2}px;margin-top:${-h / 2}px;transform:translate(${x}px, ${y}px) scale(${zoom()});transform-origin:center center`;
   }
 
+  function applyCanvasTransform() {
+    const canvas = document.querySelector('.plan-canvas');
+    if (!canvas) return;
+    const w = state.planCanvas?.w || 3150;
+    const h = state.planCanvas?.h || 880;
+    const x = state.planCanvas?.x || 0;
+    const y = state.planCanvas?.y || 0;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    canvas.style.marginLeft = `${-w / 2}px`;
+    canvas.style.marginTop = `${-h / 2}px`;
+    canvas.style.transform = `translate(${x}px, ${y}px) scale(${zoom()})`;
+    canvas.style.transformOrigin = 'center center';
+  }
+
   function viewportStyle() {
     const w = state.planViewport?.w || 1880;
     const h = state.planViewport?.h || 820;
     return `width:${w}px;height:${h}px;min-height:${h}px`;
+  }
+
+  window.beginPlanCanvasDrag = function (event) {
+    if (event.target.closest('.room') || event.target.closest('button') || event.target.closest('input') || event.target.closest('select') || event.target.closest('textarea') || event.target.closest('.resize-handle') || event.target.closest('.canvas-resize-handle') || event.target.closest('.viewport-resize-handle')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    state.planCanvas = state.planCanvas || { w: 3150, h: 880, x: 0, y: 0 };
+    state.planCanvas.dragging = {
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: state.planCanvas.x || 0,
+      baseY: state.planCanvas.y || 0,
+      zoom: zoom()
+    };
+    document.addEventListener('pointermove', movePlanCanvasKeepingZoom);
+    document.addEventListener('pointerup', endPlanCanvasKeepingZoom, { once: true });
+  };
+
+  function movePlanCanvasKeepingZoom(event) {
+    const drag = state.planCanvas?.dragging;
+    if (!drag) return;
+    state.planCanvas.x = drag.baseX + event.clientX - drag.startX;
+    state.planCanvas.y = drag.baseY + event.clientY - drag.startY;
+    state.planZoom = drag.zoom || state.planZoom || 1;
+    applyCanvasTransform();
+  }
+
+  function endPlanCanvasKeepingZoom() {
+    document.removeEventListener('pointermove', movePlanCanvasKeepingZoom);
+    if (state.planCanvas) state.planCanvas.dragging = null;
+    applyCanvasTransform();
   }
 
   window.beginPlanDrag = function (event, id, mode) {

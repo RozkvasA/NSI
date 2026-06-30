@@ -52,6 +52,22 @@
     return plan.w <= 7 && plan.h >= plan.w * 1.7;
   }
 
+  function planTypeClass(room) {
+    const value = `${room.type || ''} ${room.name || ''}`.toLowerCase();
+    if (value.includes('офис')) return 'plan-type-office';
+    if (value.includes('кабинет')) return 'plan-type-cabinet';
+    if (value.includes('open') || value.includes('ос ')) return 'plan-type-open-space';
+    if (value.includes('переговор')) return 'plan-type-meeting';
+    if (value.includes('моп') || value.includes('лифт')) return 'plan-type-mop';
+    if (value.includes('коридор') || value.includes('холл') || value.includes('проезд')) return 'plan-type-corridor';
+    if (value.includes('тех') || value.includes('сервер') || value.includes('итп') || value.includes('насос') || value.includes('вент')) return 'plan-type-tech';
+    if (value.includes('с/у') || value.includes('wc')) return 'plan-type-wc';
+    if (value.includes('кух')) return 'plan-type-kitchen';
+    if (value.includes('паркинг') || value.includes('парков')) return 'plan-type-parking';
+    if (value.includes('зона')) return 'plan-type-zone';
+    return 'plan-type-room';
+  }
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, Number(value) || 0));
   }
@@ -109,10 +125,56 @@
     return `width:${w}px;height:${h}px;margin-left:${-w / 2}px;margin-top:${-h / 2}px;transform:translate(${x}px, ${y}px) scale(${zoom()});transform-origin:center center`;
   }
 
+  function applyCanvasTransform() {
+    const canvas = document.querySelector('.plan-canvas');
+    if (!canvas) return;
+    const w = state.planCanvas?.w || 3150;
+    const h = state.planCanvas?.h || 880;
+    const x = state.planCanvas?.x || 0;
+    const y = state.planCanvas?.y || 0;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    canvas.style.marginLeft = `${-w / 2}px`;
+    canvas.style.marginTop = `${-h / 2}px`;
+    canvas.style.transform = `translate(${x}px, ${y}px) scale(${zoom()})`;
+    canvas.style.transformOrigin = 'center center';
+  }
+
   function viewportStyle() {
     const w = state.planViewport?.w || 1880;
     const h = state.planViewport?.h || 820;
     return `width:${w}px;height:${h}px;min-height:${h}px`;
+  }
+
+  window.beginPlanCanvasDrag = function (event) {
+    if (event.target.closest('.room') || event.target.closest('button') || event.target.closest('input') || event.target.closest('select') || event.target.closest('textarea') || event.target.closest('.resize-handle') || event.target.closest('.canvas-resize-handle') || event.target.closest('.viewport-resize-handle')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    state.planCanvas = state.planCanvas || { w: 3150, h: 880, x: 0, y: 0 };
+    state.planCanvas.dragging = {
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: state.planCanvas.x || 0,
+      baseY: state.planCanvas.y || 0,
+      zoom: zoom()
+    };
+    document.addEventListener('pointermove', movePlanCanvasKeepingZoom);
+    document.addEventListener('pointerup', endPlanCanvasKeepingZoom, { once: true });
+  };
+
+  function movePlanCanvasKeepingZoom(event) {
+    const drag = state.planCanvas?.dragging;
+    if (!drag) return;
+    state.planCanvas.x = drag.baseX + event.clientX - drag.startX;
+    state.planCanvas.y = drag.baseY + event.clientY - drag.startY;
+    state.planZoom = drag.zoom || state.planZoom || 1;
+    applyCanvasTransform();
+  }
+
+  function endPlanCanvasKeepingZoom() {
+    document.removeEventListener('pointermove', movePlanCanvasKeepingZoom);
+    if (state.planCanvas) state.planCanvas.dragging = null;
+    applyCanvasTransform();
   }
 
   window.beginPlanDrag = function (event, id, mode) {
@@ -238,7 +300,7 @@
       const verticalClass = isVerticalTile(room) ? 'vertical-label' : '';
       const outClass = !isInsideParent(room) ? 'out-of-parent' : '';
       return `
-        <div data-plan-room="${room.id}" class="room fixed-tile plan-level-${depth} ${isContainer ? 'plan-container' : 'plan-leaf'} ${verticalClass} ${outClass} ${state.selectedObjectId === room.id ? 'active' : ''} ${state.planSelectedId === room.id && state.planEditing ? 'editing' : ''} ${statusClass(room.status)}" onclick="pickPlanRoom(event,'${room.id}')" onpointerdown="beginPlanDrag(event,'${room.id}','move')" style="${tileStyle(room)}">
+        <div data-plan-room="${room.id}" class="room fixed-tile plan-level-${depth} ${planTypeClass(room)} ${isContainer ? 'plan-container' : 'plan-leaf'} ${verticalClass} ${outClass} ${state.selectedObjectId === room.id ? 'active' : ''} ${state.planSelectedId === room.id && state.planEditing ? 'editing' : ''} ${statusClass(room.status)}" onclick="pickPlanRoom(event,'${room.id}')" onpointerdown="beginPlanDrag(event,'${room.id}','move')" style="${tileStyle(room)}">
           <div class="room-name">${escapeHtml(room.name)}</div>
           <div class="room-status">${isContainer ? 'контейнер · ' : ''}${escapeHtml(room.type)} · ${escapeHtml(room.status)}</div>
           ${resizeHandles(room)}
@@ -250,7 +312,7 @@
       <div class="plan enhanced-plan ${state.planEditing ? 'plan-editing' : ''}">
         <div class="floor-tabs">${floors.map(f => `<button class="${state.selectedFloorId === f.id ? 'active' : ''}" onclick="state.selectedFloorId='${f.id}';render()">${escapeHtml(f.name)}</button>`).join('')}</div>
         <div class="plan-caption">
-          <div><strong>${escapeHtml(currentFloor?.name || 'Этаж')}</strong><span>${rooms.length} зон и помещений · планировка как на скриншоте</span></div>
+          <div><strong>${escapeHtml(currentFloor?.name || 'Этаж')}</strong><span>${rooms.length} зон и помещений · планировка</span></div>
           <div class="plan-actions">
             <button class="ghost" onclick="resetPlanCanvas()">В центр</button>
             <button class="ghost plan-zoom-reset" onclick="resetPlanZoom()"><span class="plan-zoom-badge">${Math.round(zoom() * 100)}%</span></button>
